@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>ORBIT</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600&display=swap');
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background:#000;
+    display:flex; justify-content:center; align-items:center;
+    height:100dvh; overflow:hidden;
+    font-family:'Orbitron',monospace;
+    touch-action:none; user-select:none;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right)
+             env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  #gameContainer {
+    position:relative; width:100%; max-width:430px;
+    height:100dvh;
+    overflow:hidden;
+    background:radial-gradient(ellipse at center, #080818 0%, #000005 100%);
+  }
+  canvas { display:block; width:100%; height:100%; }
+  #ui { position:absolute; top:0;left:0;right:0;bottom:0; pointer-events:none; }
+
+  #scoreArea {
+    position:absolute; top:clamp(28px, 5.5dvh, 56px); left:50%; transform:translateX(-50%);
+    text-align:center; display:none;
+  }
+  #scoreLabel {
+    font-family:'Rajdhani',sans-serif; font-size:clamp(9px,1.6dvh,13px); font-weight:300;
+    letter-spacing:4px; color:rgba(100,180,255,0.5); text-transform:uppercase;
+    margin-bottom:clamp(2px,0.5dvh,5px);
+  }
+  #scoreValue {
+    font-family:'Orbitron',monospace; font-size:clamp(32px,7dvh,52px); font-weight:900;
+    color:#fff; line-height:1;
+    text-shadow:0 0 20px rgba(100,180,255,0.6),0 0 40px rgba(100,180,255,0.3);
+    transition:transform 0.08s ease, color 0.08s ease;
+  }
+  #scoreValue.pulse { transform:scale(1.3); color:#7df9ff; }
+
+  #tapToStart {
+    position:absolute; top:clamp(28px, 5.5dvh, 56px); left:50%; transform:translateX(-50%);
+    text-align:center; white-space:nowrap;
+  }
+  #tapToStartText {
+    font-family:'Rajdhani',sans-serif; font-size:clamp(16px,3.2dvh,26px); font-weight:600;
+    letter-spacing:6px; color:rgba(100,180,255,0.7); text-transform:uppercase;
+    animation:blink 1.4s ease-in-out infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:.7} 50%{opacity:.15} }
+
+  #gameTitle {
+    position:absolute; top:clamp(72px,13dvh,120px); left:50%; transform:translateX(-50%);
+    text-align:center; white-space:nowrap;
+    font-family:'Rajdhani',sans-serif; font-size:clamp(28px,6dvh,54px); font-weight:300; line-height:1.8; transform:translateX(-50%) scaleY(1.5);
+    letter-spacing:12px; color:rgba(220,235,255,0.90); text-transform:uppercase;
+    text-shadow:0 0 20px rgba(200,220,255,0.25);
+  }
+
+  #bestScore {
+    position:absolute; bottom:clamp(120px,20dvh,200px); left:50%; transform:translateX(-50%);
+    text-align:center; opacity:0; transition:opacity 0.5s ease;
+  }
+  #bestScore.visible { opacity:1; }
+  #bestLabel {
+    font-family:'Rajdhani',sans-serif; font-size:clamp(11px,1.8dvh,16px); letter-spacing:5px;
+    color:rgba(255,200,80,0.5); text-transform:uppercase; margin-bottom:clamp(3px,0.6dvh,7px);
+  }
+  #bestValue {
+    font-family:'Orbitron',monospace; font-size:clamp(24px,5dvh,38px); font-weight:700;
+    color:rgba(255,200,80,0.85); text-shadow:0 0 15px rgba(255,200,80,0.4);
+  }
+
+  #gameOver {
+    position:absolute; top:0;left:0;right:0;bottom:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    opacity:0; transition:opacity 0.4s ease; pointer-events:none;
+  }
+  #gameOver.visible { opacity:1; pointer-events:all; }
+  #gameOverTitle {
+    font-family:'Orbitron',monospace; font-size:clamp(10px,1.8dvh,15px); font-weight:700;
+    letter-spacing:8px; color:rgba(255,80,80,0.9); text-transform:uppercase;
+    text-shadow:0 0 20px rgba(255,60,60,0.7); margin-bottom:clamp(4px,1dvh,10px);
+  }
+  #gameOverScore {
+    font-family:'Orbitron',monospace; font-size:clamp(52px,12dvh,88px); font-weight:900;
+    color:#fff; line-height:1; text-shadow:0 0 30px rgba(255,255,255,0.3);
+    margin-bottom:clamp(4px,1dvh,10px);
+  }
+  #gameOverBest {
+    font-family:'Rajdhani',sans-serif; font-size:clamp(11px,1.8dvh,15px); font-weight:400;
+    letter-spacing:3px; color:rgba(255,200,80,0.7); margin-bottom:clamp(28px,6dvh,60px);
+  }
+  #restartHint {
+    font-family:'Rajdhani',sans-serif; font-size:clamp(16px,3.2dvh,26px); font-weight:600;
+    letter-spacing:6px; color:rgba(100,180,255,0.5); text-transform:uppercase;
+    animation:blink 1.4s ease-in-out infinite;
+  }
+</style>
+</head>
+<body>
+<div id="gameContainer">
+  <canvas id="gameCanvas" style="position:absolute;top:0;left:0;will-change:transform;-webkit-transform:translateZ(0);transform:translateZ(0);"></canvas>
+  <div id="ui">
+    <div id="scoreArea">
+      <div id="scoreLabel">SCORE</div>
+      <div id="scoreValue">0</div>
+    </div>
+    <div id="gameTitle">ORBIT GAME</div>
+    <div id="tapToStart"><div id="tapToStartText">TAP TO START</div></div>
+    <div id="bestScore"><div id="bestLabel">BEST</div><div id="bestValue">0</div></div>
+    <div id="gameOver">
+      <div id="gameOverTitle">GAME OVER</div>
+      <div id="gameOverScore">0</div>
+      <div id="gameOverBest"></div>
+      <div id="restartHint">TAP TO RESTART</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const canvas       = document.getElementById('gameCanvas');
+const ctx          = canvas.getContext('2d', { alpha: false, willReadFrequently: false });
+const container    = document.getElementById('gameContainer');
+const scoreArea    = document.getElementById('scoreArea');
+const scoreValue   = document.getElementById('scoreValue');
+const tapToStart   = document.getElementById('tapToStart');
+const gameTitle    = document.getElementById('gameTitle');
+const bestScoreDiv = document.getElementById('bestScore');
+const bestValueEl  = document.getElementById('bestValue');
+const gameOverDiv  = document.getElementById('gameOver');
+const gameOverScoreEl = document.getElementById('gameOverScore');
+const gameOverBestEl  = document.getElementById('gameOverBest');
+
+// ── AUDIO ──────────────────────────────────────────────
+let audioCtx = null;
+function initAudio() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)({
+      latencyHint: 'interactive',
+      sampleRate: 44100
+    });
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  }
+}
+function playSuccess() {
+  if (!audioCtx) return;
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+  o.connect(g); g.connect(audioCtx.destination); o.type = 'sine';
+  const t = audioCtx.currentTime;
+  o.frequency.setValueAtTime(660, t); o.frequency.linearRampToValueAtTime(900, t+.13);
+  g.gain.setValueAtTime(.22, t); g.gain.exponentialRampToValueAtTime(.001, t+.22);
+  o.start(t); o.stop(t+.22);
+}
+function playFail() {
+  if (!audioCtx) return;
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+  o.connect(g); g.connect(audioCtx.destination); o.type = 'sawtooth';
+  const t = audioCtx.currentTime;
+  o.frequency.setValueAtTime(200, t); o.frequency.linearRampToValueAtTime(60, t+.4);
+  g.gain.setValueAtTime(.3, t); g.gain.exponentialRampToValueAtTime(.001, t+.45);
+  o.start(t); o.stop(t+.45);
+}
+
+function playStartChime() {
+  if (!audioCtx) return;
+  const t = audioCtx.currentTime;
+
+  // Double pulse — two quick low thuds, "system confirmed" feel
+  function bum(when) {
+    const o = audioCtx.createOscillator();
+    o.type = 'sine';
+    o.frequency.value = 72;
+    const g = audioCtx.createGain();
+    g.gain.setValueAtTime(0, when);
+    g.gain.linearRampToValueAtTime(0.52, when + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.001, when + 0.28);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(when); o.stop(when + 0.32);
+  }
+  bum(t);
+  bum(t + 0.22);
+}
+
+// ── THRUSTER SOUND (rising pitch sweep while pressing) ──────
+// Starts low, rises linearly to a ceiling, holds there.
+// Resets on release so next press starts from the bottom again.
+let thrusterNodes = null;
+let thrusterRafId = null;
+let thrusterStartTime = null;
+
+const THRUSTER_FREQ_START = 90;   // Hz — low, warm start
+const THRUSTER_FREQ_END   = 420;  // Hz — ceiling (neutral, not shrill)
+const THRUSTER_RISE_MS    = 2800; // ms to reach ceiling from start
+
+function startThruster() {
+  if (!audioCtx || thrusterNodes) return;
+  const t = audioCtx.currentTime;
+  thrusterStartTime = t;
+
+  const osc = audioCtx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(THRUSTER_FREQ_START, t);
+  // Linear rise to ceiling over THRUSTER_RISE_MS
+  osc.frequency.linearRampToValueAtTime(
+    THRUSTER_FREQ_END,
+    t + THRUSTER_RISE_MS / 1000
+  );
+  // Hold at ceiling indefinitely after that (no further ramp needed —
+  // Web Audio holds the last scheduled value)
+
+  // Soft lowpass to keep it smooth throughout the sweep
+  const lpf = audioCtx.createBiquadFilter();
+  lpf.type = 'lowpass';
+  lpf.frequency.value = 1200;
+  lpf.Q.value = 0.4;
+  osc.connect(lpf);
+
+  // Background-level gain, gentle fade-in
+  const masterGain = audioCtx.createGain();
+  // Compressor — prevents clipping/distortion on TV speakers and cheap outputs
+  const compressor = audioCtx.createDynamicsCompressor();
+  compressor.threshold.value = -18;
+  compressor.knee.value = 8;
+  compressor.ratio.value = 4;
+  compressor.attack.value = 0.003;
+  compressor.release.value = 0.15;
+
+  masterGain.gain.setValueAtTime(0, t);
+  masterGain.gain.setTargetAtTime(0.14, t, 0.05);
+  lpf.connect(masterGain);
+  masterGain.connect(compressor);
+  compressor.connect(audioCtx.destination);
+
+  osc.start(t);
+  thrusterNodes = { osc, masterGain };
+}
+
+function stopThruster() {
+  if (!thrusterNodes) return;
+  const { osc, masterGain } = thrusterNodes;
+  const t = audioCtx.currentTime;
+  osc.frequency.cancelScheduledValues(t);
+  masterGain.gain.cancelScheduledValues(t);
+  // setTargetAtTime for smooth exponential fade — avoids click on abrupt stop
+  masterGain.gain.setTargetAtTime(0, t, 0.04);
+  const oscRef = osc;
+  setTimeout(() => { try { oscRef.stop(); oscRef.disconnect(); } catch(e) {} }, 200);
+  thrusterNodes = null;
+  thrusterStartTime = null;
+}
+
+// ── SIZING ─────────────────────────────────────────────
+let W, H, CX, CY, maxR;
+function resize() {
+  const rect = container.getBoundingClientRect(), dpr = Math.min(devicePixelRatio||1, 2);
+  W = canvas.width  = rect.width  * dpr;
+  H = canvas.height = rect.height * dpr;
+  canvas.style.width  = rect.width  + 'px';
+  canvas.style.height = rect.height + 'px';
+  CX = W/2; CY = H/2;
+  maxR = Math.min(W,H) * 0.44;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ── CONSTANTS ──────────────────────────────────────────
+const SAT_PERIOD  = 4000;
+const SAT_VEL_MAX = 0.22;
+const SAT_ACCEL   = 14;
+const AST_SPEED   = 0.21;  // kept for ETA fallback
+const AST_SPEED_MIN = 0.15;  // slowest asteroid
+const AST_SPEED_MAX = 0.28;  // fastest asteroid
+const MIN_IV      = 250;
+const MAX_IV      = 2500;
+const HIT_FACTOR  = 1.6;
+
+// Death zones (fraction of maxR)
+const INNER_DEATH  = 0.18;  // core pull: satellite sucked in
+const OUTER_DEATH  = 0.88;  // orbit break: satellite escapes
+const DANGER_INNER = 0.28;  // warning zone begins (inner)
+const DANGER_OUTER = 0.76;  // warning zone begins (outer)
+
+// ── STATE ──────────────────────────────────────────────
+const S = { IDLE:'idle', PLAY:'play', OVER:'over' };
+let state = S.IDLE;
+let score = 0;
+let bestScore = parseInt(localStorage.getItem('orbitBest')||'0');
+let satAngle = 0, satRadius = 0, satVel = 0, pressing = false;
+let asteroids = [], particles = [];
+let nextSpawn = 0, lastTs = null;
+let idleAngle = 0, idleRadius = 0, idleT = 0;
+let gameOverPending = false;
+let speedMult = 1.0;
+let canRestart = false;
+
+// ── ASTEROIDS ──────────────────────────────────────────
+
+// Simulate satellite radial physics from a given (r, v) state forward by `ms`.
+// Returns reachable radius range [lo, hi] — both full-press and full-release paths.
+function simReach(fromR, fromV, ms) {
+  const steps  = 12;
+  const dt     = ms / steps;
+  const velMax = SAT_VEL_MAX * maxR / 1000;
+  const lo_r = INNER_DEATH * maxR, hi_r = OUTER_DEATH * maxR;
+  let results = [];
+  for (const press of [true, false]) {
+    let r = fromR, v = fromV;
+    for (let i = 0; i < steps; i++) {
+      const tgt = (press ? 1 : -1) * velMax;
+      v += (tgt - v) * SAT_ACCEL * (dt / 1000);
+      r += v * dt;
+      if (r < lo_r) { r = lo_r; if (v < 0) v = 0; }
+      if (r > hi_r) { r = hi_r; if (v > 0) v = 0; }
+    }
+    results.push(r);
+  }
+  return { lo: Math.min(...results), hi: Math.max(...results) };
+}
+
+// Simulate satellite radial state (r, v) after `ms` ms, pressing toward targetR.
+// Used to estimate where the satellite ends up after hitting an asteroid.
+function simStateAfter(fromR, fromV, ms, targetR) {
+  const steps  = 12;
+  const dt     = ms / steps;
+  const velMax = SAT_VEL_MAX * maxR / 1000;
+  const lo_r = INNER_DEATH * maxR, hi_r = OUTER_DEATH * maxR;
+  let r = fromR, v = fromV;
+  for (let i = 0; i < steps; i++) {
+    // Press outward if target is beyond current, inward if target is below
+    const press = r < targetR;
+    const tgt = (press ? 1 : -1) * velMax;
+    v += (tgt - v) * SAT_ACCEL * (dt / 1000);
+    r += v * dt;
+    if (r < lo_r) { r = lo_r; if (v < 0) v = 0; }
+    if (r > hi_r) { r = hi_r; if (v > 0) v = 0; }
+  }
+  return { r, v };
+}
+
+function spawnAsteroid(now) {
+  const startR   = maxR * 1.05;
+  const astSpeed = AST_SPEED * maxR / 1000;
+  const satOmega = (2 * Math.PI) / SAT_PERIOD;
+  const minR     = (INNER_DEATH + 0.16) * maxR; // min interceptR = 0.34*maxR, away from inner bound
+  const maxR_    = (OUTER_DEATH - 0.02) * maxR;
+  const hitTol   = (maxR * 0.038 + maxR * 0.060) * HIT_FACTOR;
+
+  // Hard cap: max 3 active asteroids on screen
+  const activeRaw = asteroids.filter(a => !a.hit && !a.missed);
+  const maxActive = score >= 55 ? 5 : score >= 25 ? 4 : 3;
+  if (activeRaw.length >= maxActive) { nextSpawn = now + 300; return; }
+
+  // Active asteroids sorted by ETA
+  const active = activeRaw
+    .map(a => ({
+      eta:        Math.max(0, (a.r - a.interceptR) / astSpeed),
+      interceptR: a.interceptR,
+      angle:      a.angle,
+      lo:         Math.max(minR,  a.interceptR - hitTol),
+      hi:         Math.min(maxR_, a.interceptR + hitTol),
+    }))
+    .sort((a, b) => a.eta - b.eta);
+
+  // ── COMFORT MARGIN ───────────────────────────────────────────────────────
+  // Each radial transition must be achievable in (1-COMFORT_MARGIN) of the
+  // available time, leaving slack for human reaction and imprecision.
+  const COMFORT_MARGIN = 0.35;
+
+  // ── ANGULAR SEPARATION ──────────────────────────────────────────────────
+  // Minimum angular difference (radians) between any two asteroid approach
+  // angles. Prevents two asteroids arriving from nearly the same direction,
+  // which causes the satellite to collide with one while aiming for the other.
+  const MIN_ANGLE_SEP = Math.PI * 0.28; // ~50 degrees
+
+  // ── validateChain ────────────────────────────────────────────────────────
+  // Simulates satellite through the full ordered sequence.
+  // KEY FIX: after each hit, the satellite's radial position is set to
+  // node.interceptR (not carried over from a mis-estimated simStateAfter),
+  // because that's where the satellite actually is when it hits the asteroid.
+  // Velocity is estimated via simStateAfter but radius is pinned to interceptR.
+  function validateChain(seq) {
+    let r = satRadius, v = satVel, t = 0;
+    for (const node of seq) {
+      const dt_full  = node.eta - t;
+      const dt_check = dt_full * (1 - COMFORT_MARGIN);
+      // Reachability check from current (r, v) using reduced time
+      const reach = simReach(r, v, dt_check);
+      if (reach.lo > node.hi || reach.hi < node.lo) return false;
+      // Advance state: pin radius to interceptR (where hit actually occurs),
+      // estimate velocity from physics simulation
+      const after = simStateAfter(r, v, dt_full, node.interceptR);
+      r = node.interceptR; // ← KEY FIX: use actual hit radius, not drifted estimate
+      v = after.v;
+      t = node.eta;
+    }
+    return true;
+  }
+
+  // ── ETA ordering: new asteroid must arrive after all existing ones ───────
+  const maxActiveEta  = active.length > 0 ? Math.max(...active.map(a => a.eta)) : 0;
+  const MIN_GAP_MS    = 450;
+  const minTravelTime = maxActiveEta + MIN_GAP_MS;
+  const maxInterceptFromTime = startR - minTravelTime * astSpeed;
+  const effectiveMaxR = Math.min(maxR_, maxInterceptFromTime);
+
+  if (effectiveMaxR < minR) { nextSpawn = now + 300; return; }
+
+  // Collect angles of all active asteroids for separation check
+  const activeAngles = active.map(a => a.angle);
+
+  let chosen = null;
+
+  for (let attempt = 0; attempt < 60; attempt++) {
+    const interceptR = minR + Math.random() * (effectiveMaxR - minR);
+    const travelTime = (startR - interceptR) / astSpeed;
+
+    // Candidate angle: satellite's future angle at intercept + random offset
+    const interceptFrac    = interceptR / maxR;
+    const minFrac_         = INNER_DEATH + 0.02, maxFrac_ = OUTER_DEATH - 0.02;
+    const diffFrac         = (interceptFrac - minFrac_) / (maxFrac_ - minFrac_);
+    const maxOffsetDeg     = 20 + diffFrac * 25;
+    const offsetRad        = (Math.random() * 2 - 1) * (maxOffsetDeg * Math.PI / 180);
+    const candidateAngle   = satAngle + satOmega * travelTime + offsetRad;
+
+    // ── Angular separation check ─────────────────────────────────────────
+    // Reject if candidate angle is too close to any active asteroid's angle
+    const angleTooClose = activeAngles.some(a => {
+      const diff = Math.abs(((candidateAngle - a) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2));
+      const wrapped = Math.min(diff, Math.PI * 2 - diff);
+      return wrapped < MIN_ANGLE_SEP;
+    });
+    if (angleTooClose) continue;
+
+    const newNode = {
+      eta:        travelTime,
+      interceptR,
+      angle:      candidateAngle,
+      lo:         Math.max(minR,  interceptR - hitTol),
+      hi:         Math.min(maxR_, interceptR + hitTol),
+    };
+
+    const seq = [...active, newNode];
+    if (validateChain(seq)) {
+      chosen = { interceptR, travelTime, angle: candidateAngle };
+      break;
+    }
+  }
+
+  if (!chosen) { nextSpawn = now + 300; return; }
+
+  // Each asteroid gets its own speed within [AST_SPEED_MIN, AST_SPEED_MAX].
+  // validateChain used AST_SPEED for ETA estimation — the actual speed difference
+  // is small enough that reachability is preserved; it adds timing unpredictability.
+  const astSpeedFrac = AST_SPEED_MIN + Math.random() * (AST_SPEED_MAX - AST_SPEED_MIN);
+  asteroids.push({
+    angle:      chosen.angle,
+    r:          startR,
+    interceptR: chosen.interceptR,
+    speed:      astSpeedFrac,
+    size:       maxR * (0.036 + Math.random() * 0.023),
+    rotation:   Math.random() * Math.PI * 2,
+    rotSpeed:   (Math.random() - 0.5) * 0.006,
+    hit: false, missed: false, alpha: 1,
+  });
+  nextSpawn = now + (MIN_IV + Math.random() * (MAX_IV - MIN_IV)) / speedMult;
+}
+
+function updateAsteroids(dt, now) {
+  for (let i = asteroids.length-1; i >= 0; i--) {
+    const a = asteroids[i];
+    if (a.hit) { a.alpha -= dt/250; if (a.alpha <= 0) asteroids.splice(i,1); continue; }
+    a.r -= (a.speed || AST_SPEED) * maxR * (dt/1000) * speedMult;
+    a.rotation += a.rotSpeed * dt;
+
+    // Hit check
+    const sx = CX + Math.cos(satAngle)*satRadius, sy = CY + Math.sin(satAngle)*satRadius;
+    const ax = CX + Math.cos(a.angle)*a.r,        ay = CY + Math.sin(a.angle)*a.r;
+    if (Math.hypot(sx-ax, sy-ay) < (maxR*.038 + a.size) * HIT_FACTOR) {
+      a.hit = true; if (!gameOverPending) { score++; speedMult = getSpeedMult(); updateScoreDisplay(); playSuccess(); } spawnParticles(ax,ay,true); continue;
+    }
+
+    // Missed — reached centre
+    if (a.r < maxR*.04 && !a.missed) {
+      a.missed = true;
+      if (!gameOverPending) { gameOverPending = true; playFail(); spawnParticles(ax,ay,false); setTimeout(endGame,380); }
+    }
+    if (a.r < -maxR*.1) asteroids.splice(i,1);
+  }
+  if (state === S.PLAY && now >= nextSpawn) spawnAsteroid(now);
+}
+
+// ── SATELLITE ──────────────────────────────────────────
+function updateSatellite(dt) {
+  dt = dt * speedMult;
+  satAngle += (2*Math.PI/SAT_PERIOD)*dt;
+  const tgt = (pressing?1:-1)*SAT_VEL_MAX*maxR/1000;
+  satVel += (tgt - satVel) * SAT_ACCEL * (dt/1000);
+  satRadius += satVel * dt;
+
+  // Death zone checks — trigger game over
+  if (state === S.PLAY && !gameOverPending) {
+    if (satRadius <= maxR * INNER_DEATH) {
+      // Sucked into core
+      gameOverPending = true;
+      satRadius = maxR * INNER_DEATH;
+      spawnParticles(CX + Math.cos(satAngle)*satRadius, CY + Math.sin(satAngle)*satRadius, false);
+      playFail();
+      setTimeout(endGame, 380);
+    } else if (satRadius >= maxR * OUTER_DEATH) {
+      // Orbit broken
+      gameOverPending = true;
+      satRadius = maxR * OUTER_DEATH;
+      spawnParticles(CX + Math.cos(satAngle)*satRadius, CY + Math.sin(satAngle)*satRadius, false);
+      playFail();
+      setTimeout(endGame, 380);
+    }
+  }
+}
+
+// ── PARTICLES ──────────────────────────────────────────
+function spawnParticles(x, y, success) {
+  const color = success ? '#ffcc44' : '#ff4040';
+  for (let i=0; i<10; i++) {
+    const a = Math.random()*Math.PI*2, sp = (.25+Math.random()*.75)*maxR*.0035;
+    particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:1,color,
+      size:(1+Math.random()*2)*Math.min(devicePixelRatio||1,2)});
+  }
+}
+function updateParticles(dt) {
+  for (let i=particles.length-1; i>=0; i--) {
+    const p=particles[i]; p.x+=p.vx*dt; p.y+=p.vy*dt; p.life-=dt/480;
+    if(p.life<=0) particles.splice(i,1);
+  }
+}
+
+// ── DRAW ───────────────────────────────────────────────
+function drawStars() {
+  ctx.save();
+  for (let i=0; i<90; i++) {
+    const px=((Math.sin(i*127.1+42)*43758.5453)%1+1)%1;
+    const py=((Math.sin(i*311.7+42)*43758.5453)%1+1)%1;
+    const sz=((Math.sin(i*74.3)*43758.5)%1+1)%1*1.5+.3;
+    ctx.globalAlpha=.1+((Math.sin(i*53.2)*43758.5)%1+1)%1*.25;
+    ctx.fillStyle='#fff';
+    ctx.beginPath(); ctx.arc(px*W,py*H,sz*Math.min(devicePixelRatio||1,2),0,Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawOrbitBounds() {
+  const dpr = devicePixelRatio||1;
+  ctx.save();
+
+  if (state === S.PLAY || state === S.OVER) {
+    const innerDanger = Math.max(0, (DANGER_INNER - satRadius/maxR) / (DANGER_INNER - INNER_DEATH));
+    const outerDanger = Math.max(0, (satRadius/maxR - DANGER_OUTER) / (OUTER_DEATH - DANGER_OUTER));
+
+    // Inner death ring
+    const inA = 0.08 + innerDanger * 0.55;
+    ctx.strokeStyle = `rgba(255,${Math.round(180 - innerDanger*180)},40,${inA})`;
+    ctx.lineWidth = (1 + innerDanger * 3) * dpr;
+    ctx.beginPath(); ctx.arc(CX, CY, maxR*INNER_DEATH, 0, Math.PI*2); ctx.stroke();
+
+    // Outer death ring
+    const outA = 0.08 + outerDanger * 0.55;
+    ctx.strokeStyle = `rgba(255,${Math.round(180 - outerDanger*180)},40,${outA})`;
+    ctx.lineWidth = (1 + outerDanger * 3) * dpr;
+    ctx.beginPath(); ctx.arc(CX, CY, maxR*OUTER_DEATH, 0, Math.PI*2); ctx.stroke();
+
+    // Inner glow fill when in danger
+    if (innerDanger > 0) {
+      const ig = ctx.createRadialGradient(CX,CY,0,CX,CY,maxR*DANGER_INNER);
+      ig.addColorStop(0, `rgba(255,60,20,${innerDanger*0.18})`);
+      ig.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = ig; ctx.beginPath(); ctx.arc(CX,CY,maxR*DANGER_INNER,0,Math.PI*2); ctx.fill();
+    }
+    // Outer glow fill when in danger
+    if (outerDanger > 0) {
+      const og = ctx.createRadialGradient(CX,CY,maxR*DANGER_OUTER,CX,CY,maxR*OUTER_DEATH);
+      og.addColorStop(0, 'rgba(0,0,0,0)');
+      og.addColorStop(1, `rgba(255,60,20,${outerDanger*0.22})`);
+      ctx.fillStyle = og; ctx.beginPath(); ctx.arc(CX,CY,maxR*OUTER_DEATH,0,Math.PI*2); ctx.fill();
+    }
+  } else {
+    ctx.strokeStyle='rgba(255,255,255,0.05)'; ctx.lineWidth=dpr;
+    [INNER_DEATH, OUTER_DEATH].forEach(f=>{ctx.beginPath();ctx.arc(CX,CY,maxR*f,0,Math.PI*2);ctx.stroke();});
+  }
+
+  ctx.restore();
+}
+
+function drawCore() {
+  const cr=maxR*.055;
+  const g1=ctx.createRadialGradient(CX,CY,0,CX,CY,cr*4.5);
+  g1.addColorStop(0,'rgba(80,180,255,0.15)'); g1.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=g1; ctx.beginPath(); ctx.arc(CX,CY,cr*4.5,0,Math.PI*2); ctx.fill();
+  const g2=ctx.createRadialGradient(CX-cr*.2,CY-cr*.2,0,CX,CY,cr);
+  g2.addColorStop(0,'#d0f0ff'); g2.addColorStop(.4,'#4ab8ff'); g2.addColorStop(1,'#1a5080');
+  ctx.fillStyle=g2; ctx.beginPath(); ctx.arc(CX,CY,cr,0,Math.PI*2); ctx.fill();
+}
+
+function drawSatellite(angle, radius) {
+  const sx=CX+Math.cos(angle)*radius, sy=CY+Math.sin(angle)*radius, sr=maxR*.038;
+  ctx.save();
+  for (let t=1;t<=9;t++) {
+    const ta=angle-t*.065;
+    ctx.globalAlpha=(1-t/10)*.22; ctx.fillStyle='#7df9ff';
+    ctx.beginPath(); ctx.arc(CX+Math.cos(ta)*radius,CY+Math.sin(ta)*radius,sr*(1-t*.07),0,Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha=1;
+  const g1=ctx.createRadialGradient(sx,sy,0,sx,sy,sr*3);
+  g1.addColorStop(0,'rgba(125,249,255,0.3)'); g1.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=g1; ctx.beginPath(); ctx.arc(sx,sy,sr*3,0,Math.PI*2); ctx.fill();
+  const g2=ctx.createRadialGradient(sx-sr*.25,sy-sr*.25,0,sx,sy,sr);
+  g2.addColorStop(0,'#ffffff'); g2.addColorStop(.4,'#7df9ff'); g2.addColorStop(1,'#1a8090');
+  ctx.fillStyle=g2; ctx.beginPath(); ctx.arc(sx,sy,sr,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+
+function drawAsteroids() {
+  const dpr = devicePixelRatio||1;
+  for (const a of asteroids) {
+    const ax=CX+Math.cos(a.angle)*a.r, ay=CY+Math.sin(a.angle)*a.r;
+    if (a.r > maxR*1.1) continue;
+    ctx.save();
+    ctx.globalAlpha = a.alpha * Math.min(1,(maxR*1.05-a.r)/(maxR*.12)+.3);
+    ctx.translate(ax,ay); ctx.rotate(a.rotation);
+    const s=a.size;
+
+    // Glow
+    const gw=ctx.createRadialGradient(0,0,0,0,0,s*2.8);
+    gw.addColorStop(0,a.hit?'rgba(255,200,60,0.5)':'rgba(255,110,30,0.28)');
+    gw.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=gw; ctx.beginPath(); ctx.arc(0,0,s*2.8,0,Math.PI*2); ctx.fill();
+
+    // Rocky shape
+    ctx.beginPath();
+    const pts=7;
+    for (let k=0;k<pts;k++) {
+      const ang=(k/pts)*Math.PI*2;
+      const jag=.7+.3*Math.sin(k*2.3+a.angle*7+a.size*100);
+      k===0?ctx.moveTo(Math.cos(ang)*s*jag,Math.sin(ang)*s*jag)
+           :ctx.lineTo(Math.cos(ang)*s*jag,Math.sin(ang)*s*jag);
+    }
+    ctx.closePath();
+    const fill=ctx.createRadialGradient(-s*.3,-s*.3,0,0,0,s);
+    fill.addColorStop(0,a.hit?'#ffe090':'#c8905a');
+    fill.addColorStop(.5,a.hit?'#ffaa30':'#8b5e3c');
+    fill.addColorStop(1,a.hit?'#c06010':'#4a2e18');
+    ctx.fillStyle=fill; ctx.fill();
+    ctx.strokeStyle=a.hit?'rgba(255,200,80,.8)':'rgba(255,140,60,.5)';
+    ctx.lineWidth=1.2*dpr; ctx.stroke();
+    ctx.restore();
+
+    // Approach track
+    if (!a.hit && a.r>maxR*.12) {
+      const prox=1-Math.min(a.r/maxR,1);
+      ctx.save(); ctx.globalAlpha=prox*.22;
+      ctx.strokeStyle='rgba(255,130,50,0.6)'; ctx.lineWidth=.8*dpr;
+      ctx.setLineDash([4*dpr,7*dpr]);
+      ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(CX,CY); ctx.stroke();
+      ctx.setLineDash([]); ctx.restore();
+    }
+  }
+}
+
+function drawParticles() {
+  ctx.save();
+  for (const p of particles) {
+    ctx.globalAlpha=p.life*0.5; ctx.fillStyle=p.color;
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.size,0,Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+// ── SCORE UI ───────────────────────────────────────────
+function getSpeedMult() {
+  const t = Math.min(1.0, score / 40);
+  return 1.0 + (2.0 - 1.0) * t;
+}
+
+function updateScoreDisplay() {
+  scoreValue.textContent=score;
+  scoreValue.classList.remove('pulse'); void scoreValue.offsetWidth; scoreValue.classList.add('pulse');
+  setTimeout(()=>scoreValue.classList.remove('pulse'),120);
+}
+
+// ── GAME LOOP ──────────────────────────────────────────
+function gameLoop(ts) {
+  requestAnimationFrame(gameLoop);
+  if (lastTs===null) lastTs=ts;
+  const dt=Math.min(ts-lastTs,50); lastTs=ts;
+
+  ctx.clearRect(0,0,W,H);
+  drawStars(); drawOrbitBounds();
+
+  if (state===S.IDLE) {
+    idleT+=dt; idleAngle+=(2*Math.PI/SAT_PERIOD)*dt;
+    // Keep idle radius safely within death zones for visual reference
+    idleRadius=maxR*.50+Math.sin(idleT/1100)*maxR*.10;
+    drawCore(); drawSatellite(idleAngle,idleRadius);
+
+  } else if (state===S.PLAY) {
+    updateSatellite(dt); updateAsteroids(dt,ts); updateParticles(dt);
+    drawAsteroids(); drawCore(); drawSatellite(satAngle,satRadius); drawParticles();
+
+  } else if (state===S.OVER) {
+    updateParticles(dt);
+    drawAsteroids(); drawCore(); drawSatellite(satAngle,satRadius); drawParticles();
+  }
+}
+
+// ── FLOW ───────────────────────────────────────────────
+function startGame() {
+  state=S.PLAY; score=0; asteroids=[]; particles=[]; gameOverPending=false;
+  speedMult = 1.0;
+  // Transfer exact idle position — no teleport
+  satAngle=idleAngle; satRadius=idleRadius; satVel=0; lastTs=null;
+  nextSpawn=performance.now()+1100;
+  tapToStart.style.display='none'; gameTitle.style.display='none'; scoreArea.style.display='block';
+  scoreValue.textContent='0'; gameOverDiv.classList.remove('visible'); bestScoreDiv.classList.remove('visible');
+}
+
+function endGame() {
+  if (state!==S.PLAY) return;
+  state=S.OVER;
+  stopThruster();
+  if (score>bestScore) { bestScore=score; localStorage.setItem('orbitBest',bestScore); }
+  scoreArea.style.display='none';
+  gameOverScoreEl.textContent=score;
+  gameOverBestEl.textContent=(score>=bestScore&&score>0)?'✦ NEW BEST ✦':`BEST: ${bestScore}`;
+  gameOverDiv.classList.add('visible');
+  // allow restart after short delay
+  setTimeout(()=>{ canRestart=true; },650);
+}
+
+function goIdle() {
+  state=S.IDLE; asteroids=[]; particles=[]; gameOverPending=false; pressing=false; lastTs=null; canRestart=false;
+  scoreArea.style.display='none'; tapToStart.style.display='block'; gameTitle.style.display='block';
+  gameOverDiv.classList.remove('visible');
+  bestValueEl.textContent=bestScore; if(bestScore>0) bestScoreDiv.classList.add('visible');
+}
+
+// ── INPUT ──────────────────────────────────────────────
+function onDown(e) {
+  if (e.cancelable) e.preventDefault();
+  initAudio(); pressing=true;
+  if (state===S.IDLE) {
+    playStartChime();
+    startGame();
+    startThruster(); // state is now PLAY, start thruster immediately
+  } else if (state===S.PLAY) {
+    startThruster();
+  } else if (state===S.OVER&&canRestart) {
+    goIdle();
+  }
+}
+function onUp(e) {
+  if(e.cancelable) e.preventDefault();
+  pressing=false;
+  stopThruster();
+}
+
+document.addEventListener('touchstart', onDown, {passive:false});
+document.addEventListener('touchend',   onUp,   {passive:false});
+document.addEventListener('mousedown',  onDown);
+document.addEventListener('mouseup',    onUp);
+document.addEventListener('touchmove', e=>{ if(e.cancelable) e.preventDefault(); }, {passive:false});
+
+// ── INIT ───────────────────────────────────────────────
+bestValueEl.textContent=bestScore;
+if (bestScore>0) bestScoreDiv.classList.add('visible');
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>
